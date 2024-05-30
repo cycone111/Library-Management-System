@@ -76,16 +76,16 @@
       <el-table-column prop="price" label="Price" sortable width="80%"/>
       <el-table-column prop="author" label="author" width="80%"/>
       <el-table-column prop="publisher" label="Publisher"/>
-<!--      <el-table-column prop="createTime" label="Date of publication" sortable/>-->
+      <!--      <el-table-column prop="createTime" label="Date of publication" sortable/>-->
       <el-table-column prop="location" label="Location" width="90%"/>
       <el-table-column prop="borrownum" label="Borrowed time" sortable v-if="user.role == 2 " width="90%"/>
 
-<!--      <el-table-column prop="leftNumber" label="leftNumber">-->
-<!--        <template v-slot="scope">-->
-<!--          <el-tag v-if="scope.row.leftNumber == 1" type="warning">Borrowed</el-tag>-->
-<!--          <el-tag v-else type="success">Not borrowed</el-tag>-->
-<!--        </template>-->
-<!--      </el-table-column>-->
+      <!--      <el-table-column prop="leftNumber" label="leftNumber">-->
+      <!--        <template v-slot="scope">-->
+      <!--          <el-tag v-if="scope.row.leftNumber == 1" type="warning">Borrowed</el-tag>-->
+      <!--          <el-tag v-else type="success">Not borrowed</el-tag>-->
+      <!--        </template>-->
+      <!--      </el-table-column>-->
       <el-table-column prop="totalNumber" label="Total" sortable width="90%"/>
       <el-table-column prop="leftNumber" label="Remaining" sortable />
       <el-table-column fixed="right" label="Operation">
@@ -99,15 +99,15 @@
           <el-button size="mini" @click="handlelend(scope.row.id,scope.row.isbn,scope.row.name,scope.row.borrownum,scope.row.leftNumber)"
                      v-if="user.role == 3 " :disabled="scope.row.leftNumber == 0">borrow
           </el-button>
-<!--          <el-popconfirm title="Confirm Return?"-->
-<!--                         @confirm="handlereturn(scope.row.id,scope.row.isbn,scope.row.borrownum)" v-if="user.role == 3 "-->
-<!--                         :disabled="scope.row.status == 1">-->
-<!--            <template #reference>-->
-<!--              <el-button type="danger" size="mini"-->
-<!--                         :disabled="(this.isbnArray.indexOf(scope.row.isbn)) == -1 ||scope.row.status == 1">Return-->
-<!--              </el-button>-->
-<!--            </template>-->
-<!--          </el-popconfirm>-->
+          <!--          <el-popconfirm title="Confirm Return?"-->
+          <!--                         @confirm="handlereturn(scope.row.id,scope.row.isbn,scope.row.borrownum)" v-if="user.role == 3 "-->
+          <!--                         :disabled="scope.row.status == 1">-->
+          <!--            <template #reference>-->
+          <!--              <el-button type="danger" size="mini"-->
+          <!--                         :disabled="(this.isbnArray.indexOf(scope.row.isbn)) == -1 ||scope.row.status == 1">Return-->
+          <!--              </el-button>-->
+          <!--            </template>-->
+          <!--          </el-popconfirm>-->
         </template>
       </el-table-column>
     </el-table>
@@ -155,9 +155,9 @@
           <el-form-item label="Book name">
             <el-input style="width: 80%" v-model="form.name"></el-input>
           </el-form-item>
-          <el-form-item label="Price">
-            <el-input style="width: 80%" v-model="form.price"></el-input>
-          </el-form-item>
+          <!--          <el-form-item label="Price">-->
+          <!--            <el-input style="width: 80%" v-model="form.price"></el-input>-->
+          <!--          </el-form-item>-->
           <el-form-item label="author">
             <el-input style="width: 80%" v-model="form.author"></el-input>
           </el-form-item>
@@ -214,6 +214,17 @@
       </span>
         </template>
       </el-dialog>
+    </div>
+    <div style="margin: 10px 0;">
+      <el-upload
+          class="upload-demo"
+          action="javascript:void(0);"
+          :before-upload="beforeUpload"
+      >
+        <el-button size="small" type="primary">click to upload</el-button>
+        <div slot="tip" class="el-upload__tip">jpg/png,500kb at most</div>
+      </el-upload>
+      <img v-if="imageUrl" :src="imageUrl" alt="Preview" style="max-width: 300px;">
     </div>
   </div>
 </template>
@@ -509,6 +520,54 @@ export default {
     //   return row.address
     // },
 
+
+    beforeUpload(file) {
+      const isJPGorPNG = file.type === 'image/jpeg' || file.type === 'image/png';
+      const isLt500K = file.size / 1024 < 500;
+
+      if (!isJPGorPNG) {
+        ElMessage.error('image can only be JPG/PNG');
+      }
+      if (!isLt500K) {
+        ElMessage.error('image should be no more than 500KB!');
+      }
+
+      if (isJPGorPNG && isLt500K) {
+        // 将图片转换为base64
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          this.imageUrl = reader.result; // 用于预览
+          // 发送请求
+          this.sendToBackend(reader.result);
+        };
+        return false; // 阻止默认上传行为
+      }
+    },
+    async sendToBackend(imageBase64) {
+      try {
+        const res = await request.post("/barCode/getId", { base64: imageBase64 });
+        if (res.data) {
+          const value = res.data;
+          this.form.isbn = value.Isbn;
+          this.form.name = value.Name;
+          this.form.author = value.Author;
+          this.form.publisher = value.Publisher;
+          this.form.location = value.Location;
+          this.form.createTime = value.CreateTime;
+          ElMessage.success('BRcode parsing success');
+        } else {
+          ElMessage.error('Barcode parsing failure');
+        }
+      } catch (error) {
+        console.error('request error:', error);
+        ElMessage.error('Barcode parsing request failed');
+      }
+    },
+
+
+
+
     handleEdit(row) {
       this.form = JSON.parse(JSON.stringify(row))
       this.dialogVisible2 = true
@@ -537,6 +596,7 @@ export default {
       search1: '',
       search2: '',
       search3: '',
+      imageUrl: '',
       total: 10,
       currentPage: 1,
       pageSize: 10,
